@@ -22,13 +22,12 @@
     blocks.forEach(function (b) { io.observe(b); });
   }
 
-  // ===== Animated particle network (self-contained, pauses when tab hidden) =====
-  var canvas = document.getElementById('particles');
+  // ===== Animated moving starfield (self-contained, pauses when tab hidden) =====
+  var canvas = document.getElementById('stars');
   if (canvas && canvas.getContext) {
     var ctx = canvas.getContext('2d');
     var dpr = Math.min(window.devicePixelRatio || 1, 2);
-    var dots = [], W = 0, H = 0, raf = null, running = false;
-    var COLORS = ['127,119,221', '29,158,117', '120,150,255'];
+    var stars = [], W = 0, H = 0, raf = null, running = false, t = 0;
 
     function size() {
       W = window.innerWidth; H = window.innerHeight;
@@ -36,41 +35,42 @@
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
     function build() {
-      var n = Math.max(28, Math.min(70, Math.round(W * H / 26000)));
-      dots = [];
+      var n = Math.max(80, Math.min(220, Math.round(W * H / 9000)));
+      stars = [];
       for (var i = 0; i < n; i++) {
-        dots.push({
-          x: Math.random() * W, y: Math.random() * H,
-          vx: (Math.random() - 0.5) * 0.35, vy: (Math.random() - 0.5) * 0.35,
-          r: Math.random() * 1.6 + 0.6,
-          c: COLORS[(Math.random() * COLORS.length) | 0]
+        stars.push({
+          x: Math.random() * W,
+          y: Math.random() * H,
+          r: Math.random() * 1.3 + 0.3,
+          base: Math.random() * 0.5 + 0.3,        // base brightness
+          tw: Math.random() * Math.PI * 2,         // twinkle phase
+          tws: Math.random() * 0.04 + 0.01,        // twinkle speed
+          vy: Math.random() * 0.18 + 0.04,         // slow downward drift
+          vx: (Math.random() - 0.5) * 0.06         // slight horizontal drift
         });
       }
     }
     function step() {
       if (!running) return;
+      t += 1;
       ctx.clearRect(0, 0, W, H);
-      for (var i = 0; i < dots.length; i++) {
-        var p = dots[i];
-        p.x += p.vx; p.y += p.vy;
-        if (p.x < 0 || p.x > W) p.vx *= -1;
-        if (p.y < 0 || p.y > H) p.vy *= -1;
+      for (var i = 0; i < stars.length; i++) {
+        var s = stars[i];
+        s.y += s.vy; s.x += s.vx;
+        if (s.y > H + 2) { s.y = -2; s.x = Math.random() * W; }
+        if (s.x < -2) s.x = W + 2; else if (s.x > W + 2) s.x = -2;
+        var a = s.base + Math.sin(t * s.tws + s.tw) * 0.35;
+        if (a < 0) a = 0; if (a > 1) a = 1;
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(' + p.c + ',0.85)';
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,' + a.toFixed(3) + ')';
         ctx.fill();
-        for (var j = i + 1; j < dots.length; j++) {
-          var q = dots[j];
-          var dx = p.x - q.x, dy = p.y - q.y;
-          var dist = Math.sqrt(dx * dx + dy * dy);
-          var max = 130;
-          if (dist < max) {
-            ctx.beginPath();
-            ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y);
-            ctx.strokeStyle = 'rgba(' + p.c + ',' + (0.16 * (1 - dist / max)).toFixed(3) + ')';
-            ctx.lineWidth = 1;
-            ctx.stroke();
-          }
+        // a few brighter stars get a soft glow
+        if (s.r > 1.05) {
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.r * 2.4, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(180,190,255,' + (a * 0.12).toFixed(3) + ')';
+          ctx.fill();
         }
       }
       raf = requestAnimationFrame(step);
